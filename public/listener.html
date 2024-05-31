@@ -1,3 +1,4 @@
+<!-- listener.html -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -9,11 +10,13 @@
 
 <body>
     <h1>Listen Live Audio Stream</h1>
-    <audio id="audioPlayer" controls autoplay></audio>
+    <button id="playButton">Play</button>
+    <audio id="audioPlayer" style="display: none;" controls autoplay></audio>
 
     <script src="https://cdn.socket.io/4.3.1/socket.io.min.js"></script>
     <script>
         const socket = io();
+        const playButton = document.getElementById('playButton');
         const audioPlayer = document.getElementById('audioPlayer');
         let mediaSource = new MediaSource();
         let sourceBuffer;
@@ -30,7 +33,7 @@
                 reader.onload = function () {
                     if (!sourceBuffer.updating) {
                         sourceBuffer.appendBuffer(new Uint8Array(reader.result));
-                    } else {
+                    } else {  
                         sourceBuffer.addEventListener('updateend', function update() {
                             sourceBuffer.removeEventListener('updateend', update);
                             sourceBuffer.appendBuffer(new Uint8Array(reader.result));
@@ -39,6 +42,14 @@
                 };
                 reader.readAsArrayBuffer(blob);
             });
+        });
+
+        playButton.addEventListener('click', () => {
+            if (audioPlayer.paused) {
+                audioPlayer.play();
+            } else {
+                audioPlayer.pause();
+            }
         });
     </script>
 </body>
