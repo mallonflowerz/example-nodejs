@@ -1,0 +1,91 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Audio Stream</title>
+</head>
+
+<body>
+    <h1>Live Audio Stream</h1>
+    <button id="startButton">Start Streaming</button>
+    <button id="stopButton">Stop Streaming</button>
+    <input type="checkbox" id="useMicrophone" checked> Use Microphone<br>
+    <input type="checkbox" id="useFile"> Use Audio File
+    <input type="file" id="audioFile" accept="audio/*">
+
+    <script src="https://cdn.socket.io/4.3.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const useMicrophoneCheckbox = document.getElementById('useMicrophone');
+        const useFileCheckbox = document.getElementById('useFile');
+        const audioFileInput = document.getElementById('audioFile');
+        let mediaRecorder;
+        let audioStream;
+        let audioContext;
+        let micStream, micSource, fileSource;
+
+        async function startStreaming() {
+            try {
+                audioContext = new AudioContext();
+                const destination = audioContext.createMediaStreamDestination();
+
+                if (useMicrophoneCheckbox.checked) {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    micSource = audioContext.createMediaStreamSource(micStream);
+                    micSource.connect(destination);
+                }
+
+                if (useFileCheckbox.checked && audioFileInput.files.length > 0) {
+                    const file = audioFileInput.files[0];
+                    const fileReader = new FileReader();
+
+                    fileReader.onload = async function (event) {
+                        const audioBuffer = await audioContext.decodeAudioData(event.target.result);
+                        fileSource = audioContext.createBufferSource();
+                        fileSource.buffer = audioBuffer;
+                        fileSource.connect(destination);
+                        fileSource.start();
+                    };
+
+                    fileReader.readAsArrayBuffer(file);
+                }
+
+                audioStream = destination.stream;
+                mediaRecorder = new MediaRecorder(audioStream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        socket.emit('audioChunk', event.data);
+                    }
+                };
+
+                mediaRecorder.start(100); // Generar datos disponibles cada 100 ms
+            } catch (err) {
+                console.error('Error accessing microphone or file:', err);
+            }
+        }
+
+        function stopStreaming() {
+            mediaRecorder.stop();
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+            }
+            if (fileSource) {
+                fileSource.stop();
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+        }
+
+        startButton.addEventListener('click', startStreaming);
+        stopButton.addEventListener('click', stopStreaming);
+    </script>
+</body>
+
+</html>

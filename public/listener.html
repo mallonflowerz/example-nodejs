@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen Live Audio Stream</title>
+</head>
+
+<body>
+    <h1>Listen Live Audio Stream</h1>
+    <audio id="audioPlayer" controls autoplay></audio>
+
+    <script src="https://cdn.socket.io/4.3.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const audioPlayer = document.getElementById('audioPlayer');
+        let mediaSource = new MediaSource();
+        let sourceBuffer;
+
+        audioPlayer.src = URL.createObjectURL(mediaSource);
+
+        mediaSource.addEventListener('sourceopen', () => {
+            sourceBuffer = mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
+            sourceBuffer.mode = 'sequence';
+
+            socket.on('audioChunk', (data) => {
+                const blob = new Blob([data], { type: 'audio/webm' });
+                const reader = new FileReader();
+                reader.onload = function () {
+                    if (!sourceBuffer.updating) {
+                        sourceBuffer.appendBuffer(new Uint8Array(reader.result));
+                    } else {
+                        sourceBuffer.addEventListener('updateend', function update() {
+                            sourceBuffer.removeEventListener('updateend', update);
+                            sourceBuffer.appendBuffer(new Uint8Array(reader.result));
+                        });
+                    }
+                };
+                reader.readAsArrayBuffer(blob);
+            });
+        });
+    </script>
+</body>
+
+</html>
